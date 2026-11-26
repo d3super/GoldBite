@@ -1,22 +1,20 @@
-# GOLDBITE – Fase 2
+# GOLDBITE – Fase 3
 Track Your Gold, Grow Your Wealth.
 
-Isi Fase 2: kerangka PWA, tema navy-gold (terang/gelap), start screen, daftar, login,
-PIN, lupa PIN, lupa password, login Super Admin, kerangka menu (bottom navigation),
-profil, dan Calculation Engine terpusat beserta 15 tes otomatis.
+Fase 2: kerangka PWA, tema navy-gold, login/PIN, Calculation Engine.
+Fase 3: aset (logam mulia & perhiasan), transaksi beli/jual, harga emas, penyimpanan lokal
+(IndexedDB) dan sinkronisasi dasar ke Supabase, foto aset & bukti transaksi.
 
-## Struktur
-- `src/lib/calc.js`        Calculation Engine (semua rumus ada di sini)
-- `src/lib/pin.js`         PIN lokal (hash PBKDF2, tidak dikirim ke server)
-- `src/context/AppContext.jsx`  login, sesi, tema, kunci aplikasi
-- `src/pages/`             Auth, Pin, ResetPassword, Shell (menu utama)
-- `tests/calc.test.js`     tes perhitungan (`npm test`)
-- `goldbite-patch-fase2.sql`    tambahan SQL (jalankan di Supabase)
+## Struktur penting
+- `src/lib/calc.js`     Calculation Engine (semua rumus)
+- `src/lib/db.js`       penyimpanan lokal IndexedDB
+- `src/lib/repo.js`     operasi data local-first (aset, transaksi, harga, foto)
+- `src/lib/sync.js`     kirim/tarik data ke Supabase
+- `src/lib/prices.js`   pemilihan harga acuan + ambil harga spot
+- `src/context/DataContext.jsx`  data & status sinkronisasi untuk seluruh layar
+- `src/pages/`          Portfolio, Transactions, Prices, Shell, Auth, Pin
+- `tests/`              30 tes otomatis (`npm test`)
+- `goldbite-patch-fase3.sql`  tambahan SQL Fase 3 (jalankan di Supabase)
 
 ## Menjalankan di komputer (opsional)
-1. Install Node.js 20+.
-2. Salin `.env.example` menjadi `.env`, isi URL dan anon key Supabase.
-3. `npm install` lalu `npm run dev`.
-4. `npm test` untuk menjalankan tes perhitungan.
-
-Panduan lengkap deploy lewat GitHub + Vercel ada di pesan chat.
+`.env` diisi seperti `.env.example`, lalu `npm install`, `npm run dev`, `npm test`.

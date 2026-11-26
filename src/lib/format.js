@@ -19,3 +19,31 @@ export function parseId(text) {
   const n = Number(clean.replace(/\./g, '').replace(',', '.'));
   return Number.isFinite(n) ? n : 0;
 }
+
+// Berat: terima "12,5" dan "12.5" sebagai 12,5 (titik/koma = desimal). "" -> 0
+export function parseDecimal(text) {
+  if (typeof text === 'number') return text;
+  const clean = String(text ?? '').trim().replace(',', '.').replace(/[^\d.]/g, '');
+  const parts = clean.split('.');
+  const norm = parts.length > 2 ? `${parts.slice(0, -1).join('')}.${parts[parts.length - 1]}` : clean;
+  const n = Number(norm);
+  return Number.isFinite(n) ? n : 0;
+}
+
+// "14000000" -> "14.000.000" (untuk kolom uang yang diketik)
+export const groupDigits = (digits) => String(digits || '').replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+export const digitsOf = (text) => String(text ?? '').replace(/\D/g, '');
+export const numToInput = (n) => (n == null ? '' : String(n).replace('.', ','));
+export const todayStr = () => {
+  const d = new Date();
+  const p = (x) => String(x).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+export const formatDate = (s) => {
+  const d = new Date(`${String(s).slice(0, 10)}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+export const formatDateTime = (iso) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};

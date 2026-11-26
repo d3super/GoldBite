@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react';
 import {
-  LayoutDashboard, Wallet, Plus, Coins, TrendingUp, Sun, Moon, User, Lock, LogOut, ShieldCheck,
-  Bell, RefreshCw, Calculator, FileText, Settings, Cloud, CloudOff, ChevronRight, ArrowLeft, KeyRound,
+  LayoutDashboard, Wallet, Plus, Coins, TrendingUp, Sun, Moon, User, Lock, LogOut, ShieldCheck, Bell, RefreshCw,
+  Calculator, FileText, Settings, Cloud, CloudOff, ChevronRight, ArrowLeft, KeyRound, ReceiptText, Gem, HandCoins,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useData } from '../context/DataContext';
 import { Modal, ConfirmModal } from '../components/ui';
+import AssetForm from '../components/AssetForm';
+import SellForm from '../components/SellForm';
+import Portfolio from './Portfolio';
+import Prices from './Prices';
+import Transactions, { TxRow } from './Transactions';
 import { PasswordGate } from './Pin';
 import { loadAvatar } from '../lib/image';
 import { friendlyError } from '../lib/errors';
-import { formatRupiah, formatGram, formatPercent, parseId } from '../lib/format';
+import { formatRupiah, formatGram, formatPercent, formatDateTime, parseDecimal, parseId } from '../lib/format';
 import { PURITIES } from '../lib/constants';
-import { summarizePortfolio, pureWeight, marketValue } from '../lib/calc';
+import { pureWeight, marketValue } from '../lib/calc';
 
 const TABS = [
   { id: 'home', label: 'Home', icon: LayoutDashboard },
@@ -22,8 +28,10 @@ const TABS = [
 
 export default function Shell() {
   const [tab, setTab] = useState('home');
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [overlay, setOverlay] = useState(null); // 'profile' | 'transactions'
   const [addOpen, setAddOpen] = useState(false);
+  const [assetForm, setAssetForm] = useState(null); // { category, existing }
+  const [sellForm, setSellForm] = useState(null); // { asset }
   const { user, profile } = useApp();
   const [avatar, setAvatar] = useState(null);
 
@@ -33,15 +41,20 @@ export default function Shell() {
     return () => { alive = false; };
   }, [user, profile?.avatar_path]);
 
-  if (profileOpen) return <ProfilePage avatar={avatar} onBack={() => setProfileOpen(false)} />;
+  const openAdd = (category) => setAssetForm({ category, existing: null });
+  const openEdit = (a) => setAssetForm({ category: a.category, existing: a });
+  const openSell = (a) => setSellForm({ asset: a ?? null });
 
-  return (
+  let body;
+  if (overlay === 'profile') body = <ProfilePage avatar={avatar} onBack={() => setOverlay(null)} onTransactions={() => setOverlay('transactions')} />;
+  else if (overlay === 'transactions') body = <Transactions onBack={() => setOverlay('profile')} />;
+  else body = (
     <div className="app bg-aurora">
       <div className="screen">
-        {tab === 'home' && <HomeTab avatar={avatar} onProfile={() => setProfileOpen(true)} />}
-        {tab === 'portfolio' && <Soon title="Portfolio" text="Daftar semua aset, logam mulia, dan perhiasan akan hadir di Fase 3." icon={Wallet} />}
-        {tab === 'price' && <Soon title="Harga Emas" text="Harga pasar, buyback, dan riwayat harga akan hadir di Fase 3." icon={Coins} />}
-        {tab === 'analysis' && <Soon title="Analisis" text="Profit/loss, ROI, komposisi, dan valuasi akan hadir di Fase 4." icon={TrendingUp} />}
+        {tab === 'home' && <HomeTab avatar={avatar} onProfile={() => setOverlay('profile')} onTransactions={() => setOverlay('transactions')} />}
+        {tab === 'portfolio' && <Portfolio onAdd={openAdd} onEdit={openEdit} onSell={openSell} />}
+        {tab === 'price' && <Prices />}
+        {tab === 'analysis' && <Soon title="Analisis" text="Profit/loss, ROI, komposisi, dan valuasi lengkap akan hadir di Fase 4." icon={TrendingUp} />}
       </div>
 
       <nav className="bottom-nav" aria-label="Navigasi utama">
@@ -49,7 +62,7 @@ export default function Shell() {
           {TABS.map((t) => {
             const Icon = t.icon;
             if (t.id === 'add') {
-              return <button key="add" className="fab" onClick={() => setAddOpen(true)} aria-label="Tambah aset atau transaksi"><Icon size={26} /></button>;
+              return <button key="add" className="fab" onClick={() => setAddOpen(true)} aria-label="Tambah aset atau catat transaksi"><Icon size={26} /></button>;
             }
             return (
               <button key={t.id} className={`nav-item ${tab === t.id ? 'on' : ''}`} onClick={() => setTab(t.id)}>
@@ -60,16 +73,29 @@ export default function Shell() {
           })}
         </div>
       </nav>
+    </div>
+  );
 
+  return (
+    <>
+      {body}
       {addOpen && (
         <Modal title="Tambah cepat" onClose={() => setAddOpen(false)}>
-          <p className="muted" style={{ marginTop: 0 }}>
-            Pintasan ini akan membuka form <b>Tambah aset</b> dan <b>Catat transaksi</b> (maksimal 3 langkah). Form tersebut dibuat di Fase 3.
-          </p>
-          <button className="btn btn-ghost" onClick={() => setAddOpen(false)}>Tutup</button>
+          <button className="list-row" onClick={() => { setAddOpen(false); openAdd('logam_mulia'); }}>
+            <span className="ico"><Coins size={18} /></span><span className="grow">Tambah logam mulia<div className="muted small">Antam, UBS, Galeri24, dll.</div></span><ChevronRight size={18} className="muted" />
+          </button>
+          <button className="list-row" onClick={() => { setAddOpen(false); openAdd('perhiasan'); }}>
+            <span className="ico"><Gem size={18} /></span><span className="grow">Tambah perhiasan<div className="muted small">Cincin, kalung, gelang, dll.</div></span><ChevronRight size={18} className="muted" />
+          </button>
+          <button className="list-row" onClick={() => { setAddOpen(false); openSell(null); }}>
+            <span className="ico"><HandCoins size={18} /></span><span className="grow">Catat penjualan<div className="muted small">Jual aset yang sudah tercatat</div></span><ChevronRight size={18} className="muted" />
+          </button>
+          <button className="btn btn-ghost" style={{ marginTop: 12 }} onClick={() => setAddOpen(false)}>Batal</button>
         </Modal>
       )}
-    </div>
+      {assetForm && <AssetForm key={assetForm.existing?.id ?? assetForm.category} category={assetForm.category} existing={assetForm.existing} onClose={() => setAssetForm(null)} />}
+      {sellForm && <SellForm asset={sellForm.asset} onClose={() => setSellForm(null)} />}
+    </>
   );
 }
 
@@ -86,11 +112,15 @@ function Soon({ title, text, icon: Icon }) {
   );
 }
 
-function StatusChip() {
-  const { online } = useApp();
-  return online
-    ? <span className="chip ok"><Cloud size={14} /> Online</span>
-    : <span className="chip off"><CloudOff size={14} /> Offline</span>;
+function SyncChip() {
+  const { online, session } = useApp();
+  const { sync } = useData();
+  if (!online) return <span className="chip off"><CloudOff size={14} /> Offline{sync.pending ? ` • ${sync.pending} menunggu` : ''}</span>;
+  if (!session) return <span className="chip off"><CloudOff size={14} /> Masuk ulang untuk sinkron</span>;
+  if (sync.syncing) return <span className="chip"><RefreshCw size={14} /> Menyinkronkan…</span>;
+  if (sync.error) return <span className="chip off"><Cloud size={14} /> Sinkron gagal</span>;
+  if (sync.pending) return <span className="chip"><Cloud size={14} /> {sync.pending} menunggu sinkron</span>;
+  return <span className="chip ok"><Cloud size={14} /> Tersinkron</span>;
 }
 
 function AvatarBtn({ avatar, onClick }) {
@@ -101,11 +131,16 @@ function AvatarBtn({ avatar, onClick }) {
   );
 }
 
-function HomeTab({ avatar, onProfile }) {
+const SOFT_POS = '#7BE0B8';
+const SOFT_NEG = '#FF9B9B';
+
+function HomeTab({ avatar, onProfile, onTransactions }) {
   const { profile, toggleTheme } = useApp();
-  // Menunjukkan Calculation Engine terhubung. Data aset nyata hadir di Fase 3.
-  const s = summarizePortfolio([], {});
+  const { summary, priceInputs, transactions, assets, ready } = useData();
   const dark = document.documentElement.dataset.theme === 'dark';
+  const noPrice = summary.itemCount > 0 && !priceInputs.market24k;
+  const pl = summary.unrealizedPL;
+  const nameOf = (t) => assets.find((a) => a.id === t.asset_id)?.name ?? 'Aset';
 
   return (
     <>
@@ -120,17 +155,34 @@ function HomeTab({ avatar, onProfile }) {
         </div>
       </div>
 
-      <div style={{ marginBottom: 12 }}><StatusChip /></div>
+      <div style={{ marginBottom: 12 }}><SyncChip /></div>
 
       <div className="hero">
         <div className="label">Total nilai portofolio</div>
-        <div className="big num">{formatRupiah(s.marketValue)}</div>
+        <div className="big num">{!ready ? '…' : noPrice ? 'Harga belum ada' : formatRupiah(summary.marketValue)}</div>
         <div className="stat-row">
-          <div className="stat"><div className="label">Total modal</div><div className="val num">{formatRupiah(s.capital)}</div></div>
-          <div className="stat"><div className="label">Return</div><div className="val num">{formatPercent(s.roiPercent)}</div></div>
-          <div className="stat"><div className="label">Total berat</div><div className="val num">{formatGram(s.totalGrams)}</div></div>
-          <div className="stat"><div className="label">Jumlah item</div><div className="val num">{s.itemCount}</div></div>
+          <div className="stat"><div className="label">Total modal</div><div className="val num">{formatRupiah(summary.capital)}</div></div>
+          <div className="stat"><div className="label">Est. jual kembali</div><div className="val num">{noPrice ? '-' : formatRupiah(summary.liquidationValue)}</div></div>
+          <div className="stat"><div className="label">Untung/rugi</div><div className="val num" style={{ color: noPrice ? undefined : pl >= 0 ? SOFT_POS : SOFT_NEG }}>{noPrice ? '-' : formatRupiah(pl)}</div></div>
+          <div className="stat"><div className="label">Return</div><div className="val num" style={{ color: noPrice ? undefined : pl >= 0 ? SOFT_POS : SOFT_NEG }}>{noPrice ? '-' : formatPercent(summary.roiPercent)}</div></div>
+          <div className="stat"><div className="label">Total berat</div><div className="val num">{formatGram(summary.totalGrams)}</div></div>
+          <div className="stat"><div className="label">Jumlah item</div><div className="val num">{summary.itemCount}</div></div>
         </div>
+        <div className="small" style={{ marginTop: 10, color: 'rgba(255,255,255,0.7)', position: 'relative', zIndex: 1 }}>
+          Logam mulia {formatGram(summary.gramsByCategory.logam_mulia)} • Perhiasan {formatGram(summary.gramsByCategory.perhiasan)}
+          {noPrice && <><br />Isi harga di menu Harga agar nilai portofolio bisa dihitung.</>}
+          {!noPrice && summary.itemCount > 0 && summary.liquidationIsEstimate && <><br />Nilai jual kembali adalah estimasi, bukan penawaran resmi toko.</>}
+          {!noPrice && !summary.isComplete && summary.itemCount > 0 && <><br />Sebagian aset belum memiliki harga acuan.</>}
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 14 }}>
+        <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+          <h3>Transaksi terakhir</h3>
+          <button className="link" onClick={onTransactions}>Lihat semua</button>
+        </div>
+        {transactions.length ? transactions.slice(0, 3).map((t) => <TxRow key={t.id} t={t} name={nameOf(t)} onClick={onTransactions} />)
+          : <p className="muted small" style={{ margin: '6px 0' }}>Belum ada transaksi. Tekan tombol (+) untuk menambah aset.</p>}
       </div>
 
       <QuickCalc />
@@ -138,16 +190,17 @@ function HomeTab({ avatar, onProfile }) {
   );
 }
 
-// Kalkulator cepat: contoh perhitungan yang bisa diperiksa langsung (prinsip "setiap perhitungan dapat diperiksa")
+// Kalkulator cepat: contoh perhitungan yang bisa diperiksa langsung ("setiap perhitungan dapat diperiksa")
 function QuickCalc() {
   const [weight, setWeight] = useState('10');
   const [code, setCode] = useState('18K');
   const [price, setPrice] = useState('1500000');
   const p = PURITIES.find((x) => x.code === code);
-  const w = parseId(weight);
+  const w = parseDecimal(weight);
   const pr = parseId(price);
   const pure = pureWeight(w, p.fineness);
   const val = marketValue(w, pr, p.fineness);
+  const pct = `${(p.fineness * 100).toFixed(2).replace('.', ',')}%`;
 
   return (
     <div className="card" style={{ marginTop: 14 }}>
@@ -163,23 +216,45 @@ function QuickCalc() {
       <label className="field"><span>Harga emas 24K per gram (Rp)</span>
         <input className="input" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
       <div className="grid2">
-        <div><div className="muted" style={{ fontSize: 12 }}>Berat emas murni</div><div className="num" style={{ fontSize: 17 }}>{formatGram(pure)}</div></div>
-        <div><div className="muted" style={{ fontSize: 12 }}>Nilai emas</div><div className="num" style={{ fontSize: 17 }}>{formatRupiah(val)}</div></div>
+        <div><div className="muted small">Berat emas murni</div><div className="num" style={{ fontSize: 17 }}>{formatGram(pure)}</div></div>
+        <div><div className="muted small">Nilai emas</div><div className="num" style={{ fontSize: 17 }}>{formatRupiah(val)}</div></div>
       </div>
       <div className="formula">
-        Berat murni = {w} g × {(p.fineness * 100).toFixed(2).replace('.', ',')}% = {formatGram(pure)}<br />
-        Nilai = {w} g × {formatRupiah(pr)} × {(p.fineness * 100).toFixed(2).replace('.', ',')}% = {formatRupiah(val)}
+        Berat murni = {w} g × {pct} = {formatGram(pure)}<br />
+        Nilai = {w} g × {formatRupiah(pr)} × {pct} = {formatRupiah(val)}
       </div>
     </div>
   );
 }
 
-function ProfilePage({ avatar, onBack }) {
+function SyncModal({ onClose }) {
+  const { online, session } = useApp();
+  const { sync, syncNow } = useData();
+  const canSync = online && !!session && !sync.syncing;
+  return (
+    <Modal title="Sinkronisasi" onClose={onClose}>
+      <div className="kv"><span>Koneksi</span><span>{online ? 'Online' : 'Offline'}</span></div>
+      <div className="kv"><span>Menunggu dikirim</span><span className="num">{sync.pending} data</span></div>
+      <div className="kv"><span>Terakhir berhasil</span><span>{sync.lastSync ? formatDateTime(sync.lastSync) : 'Belum pernah'}</span></div>
+      {sync.error && <div className="formula" style={{ color: 'var(--neg)' }}>{sync.error}</div>}
+      {!session && <p className="muted small">Sesi login habis. Keluar lalu masuk lagi saat online agar data bisa disinkronkan.</p>}
+      <p className="muted small">Data selalu disimpan lebih dulu di perangkat ini, sehingga tetap bisa dicatat saat offline dan terkirim otomatis saat koneksi kembali.</p>
+      <div className="modal-actions">
+        <button className="btn btn-ghost" onClick={onClose}>Tutup</button>
+        <button className="btn btn-gold" onClick={syncNow} disabled={!canSync}>{sync.syncing ? 'Menyinkronkan…' : 'Sinkronkan sekarang'}</button>
+      </div>
+    </Modal>
+  );
+}
+
+function ProfilePage({ avatar, onBack, onTransactions }) {
   const { user, profile, theme, setTheme, online, lockNow, hasPin, logout, resetPinWithPassword, notify } = useApp();
+  const { sync } = useData();
   const [confirmOut, setConfirmOut] = useState(false);
   const [outBusy, setOutBusy] = useState(false);
   const [changePin, setChangePin] = useState(false);
   const [account, setAccount] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
   const [soon, setSoon] = useState(null);
   const [themeOpen, setThemeOpen] = useState(false);
 
@@ -191,7 +266,7 @@ function ProfilePage({ avatar, onBack }) {
   const Row = ({ icon: Icon, label, sub, onClick }) => (
     <button className="list-row" onClick={onClick}>
       <span className="ico"><Icon size={18} /></span>
-      <span className="grow"><div>{label}</div>{sub && <div className="muted" style={{ fontSize: 12 }}>{sub}</div>}</span>
+      <span className="grow"><div>{label}</div>{sub && <div className="muted small">{sub}</div>}</span>
       <ChevronRight size={18} className="muted" />
     </button>
   );
@@ -219,9 +294,10 @@ function ProfilePage({ avatar, onBack }) {
 
         <div className="card" style={{ marginTop: 14, padding: '4px 14px' }}>
           <Row icon={User} label="Akun saya" sub="Nama, username, email" onClick={() => setAccount(true)} />
+          <Row icon={ReceiptText} label="Transaksi" sub="Histori pembelian dan penjualan" onClick={onTransactions} />
+          <Row icon={RefreshCw} label="Sinkronisasi" sub={sync.pending ? `${sync.pending} data menunggu` : 'Semua data tersinkron'} onClick={() => setSyncOpen(true)} />
           <Row icon={KeyRound} label="Ubah PIN" sub="Butuh password akun" onClick={() => setChangePin(true)} />
           {hasPin && <Row icon={Lock} label="Kunci aplikasi sekarang" onClick={lockNow} />}
-          <Row icon={RefreshCw} label="Sinkronisasi" sub="Segera hadir (Fase 5)" onClick={() => setSoon('Sinkronisasi')} />
           <Row icon={Bell} label="Notifikasi" sub="Segera hadir (Fase 4)" onClick={() => setSoon('Notifikasi')} />
           <Row icon={Calculator} label="Kalkulator Zakat" sub="Segera hadir (Fase 4)" onClick={() => setSoon('Kalkulator Zakat')} />
           <Row icon={FileText} label="Laporan & ekspor" sub="Segera hadir (Fase 4)" onClick={() => setSoon('Laporan & ekspor')} />
@@ -234,8 +310,9 @@ function ProfilePage({ avatar, onBack }) {
         </button>
       </div>
 
+      {syncOpen && <SyncModal onClose={() => setSyncOpen(false)} />}
       {confirmOut && (
-        <ConfirmModal title="Keluar dari akun?" message="Anda perlu memasukkan email dan password lagi untuk masuk." confirmLabel="Keluar" danger busy={outBusy}
+        <ConfirmModal title="Keluar dari akun?" message="Data tetap aman di server dan di perangkat ini. Anda perlu memasukkan email dan password lagi untuk masuk." confirmLabel="Keluar" danger busy={outBusy}
           onConfirm={doLogout} onClose={() => setConfirmOut(false)} />
       )}
       {changePin && (
@@ -248,9 +325,9 @@ function ProfilePage({ avatar, onBack }) {
       )}
       {account && (
         <Modal title="Akun saya" onClose={() => setAccount(false)}>
-          <div className="list-row"><span className="grow"><div className="muted" style={{ fontSize: 12 }}>Nama</div>{profile?.full_name}</span></div>
-          <div className="list-row"><span className="grow"><div className="muted" style={{ fontSize: 12 }}>Username</div>@{profile?.username}</span></div>
-          <div className="list-row"><span className="grow"><div className="muted" style={{ fontSize: 12 }}>Email</div>{user?.email || '-'}</span></div>
+          <div className="kv"><span>Nama</span><span>{profile?.full_name}</span></div>
+          <div className="kv"><span>Username</span><span>@{profile?.username}</span></div>
+          <div className="kv"><span>Email</span><span>{user?.email || '-'}</span></div>
           <button className="btn btn-ghost" style={{ marginTop: 12 }} onClick={() => setAccount(false)}>Tutup</button>
         </Modal>
       )}
