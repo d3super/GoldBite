@@ -130,7 +130,12 @@ export function AppProvider({ children }) {
       if (error) throw error;
       if (requireRole) {
         const { data: p, error: e2 } = await supabase.from('profiles').select('role').eq('id', data.user.id).single();
-        if (e2 || p?.role !== requireRole) {
+        if (e2) {
+          // Gagal membaca profil (mis. izin tabel belum diatur) BUKAN berarti bukan admin
+          await supabase.auth.signOut({ scope: 'local' });
+          throw e2;
+        }
+        if (p?.role !== requireRole) {
           await supabase.auth.signOut({ scope: 'local' });
           throw new Error('NOT_ADMIN');
         }

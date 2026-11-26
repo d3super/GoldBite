@@ -1,6 +1,7 @@
 // Terjemahkan pesan error teknis menjadi bahasa Indonesia yang mudah dipahami
 export function friendlyError(err) {
   const m = String(err?.message || err || '').toLowerCase();
+  if (m.includes('permission denied')) return 'Izin akses database belum diatur. Jalankan file goldbite-patch-izin.sql di Supabase.';
   if (m.includes('not_admin')) return 'Akun ini bukan Super Admin.';
   if (m.includes('username_taken')) return 'Username sudah dipakai. Coba username lain.';
   if (m.includes('invalid login')) return 'Email atau password salah.';
