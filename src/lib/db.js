@@ -1,8 +1,8 @@
 // Penyimpanan lokal di HP/peramban (IndexedDB). Bila IndexedDB tidak tersedia
 // (mis. mode privat tertentu) otomatis memakai memori: data tetap jalan, tetapi hilang saat ditutup.
 const NAME = 'goldbite';
-const VERSION = 1;
-const KEYS = { assets: 'id', transactions: 'id', prices: 'id', files: 'path', meta: 'key' };
+const VERSION = 2;
+const KEYS = { assets: 'id', transactions: 'id', prices: 'id', alerts: 'id', files: 'path', meta: 'key' };
 
 const mem = Object.fromEntries(Object.keys(KEYS).map((s) => [s, new Map()]));
 let dbp = null;

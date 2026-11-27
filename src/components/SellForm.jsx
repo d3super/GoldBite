@@ -5,12 +5,12 @@ import { useData } from '../context/DataContext';
 import { useApp } from '../context/AppContext';
 import { formatRupiah, formatGram, todayStr } from '../lib/format';
 import { validateSale } from '../lib/repo';
-import { realizedPL, valueAsset } from '../lib/calc';
+import { valueAsset } from '../lib/calc';
 import { friendlyError } from '../lib/errors';
 
 // Catat penjualan satu aset (seluruh berat aset). Laba/rugi ditampilkan sebelum disimpan.
 export default function SellForm({ asset: preset, onClose }) {
-  const { assets, transactions, priceInputs, master, sellAsset } = useData();
+  const { assets, priceInputs, master, sellAsset } = useData();
   const { notify } = useApp();
   const active = assets.filter((a) => a.status !== 'sold');
   const [assetId, setAssetId] = useState(preset?.id ?? active[0]?.id ?? '');
@@ -25,16 +25,10 @@ export default function SellForm({ asset: preset, onClose }) {
   const total = Number(f.total || 0);
   const preview = useMemo(() => {
     if (!asset || !(total > 0)) return null;
-    const before = realizedPL(transactions);
-    const after = realizedPL([...transactions, {
-      type: 'jual', trx_date: f.trx_date, weight_g: asset.net_weight, total, extra_cost: Number(f.extra_cost || 0), tax: Number(f.tax || 0),
-    }]);
-    return {
-      net: total - Number(f.extra_cost || 0) - Number(f.tax || 0),
-      cogs: after.cogs - before.cogs,
-      pl: after.realizedPL - before.realizedPL,
-    };
-  }, [asset, transactions, total, f.trx_date, f.extra_cost, f.tax]);
+    const net = total - Number(f.extra_cost || 0) - Number(f.tax || 0);
+    const cogs = valueAsset(asset, priceInputs, master.settings).acquisition;
+    return { net, cogs, pl: net - cogs };
+  }, [asset, total, f.extra_cost, f.tax, priceInputs, master.settings]);
 
   const submit = async () => {
     const payload = { ...f, total, extra_cost: Number(f.extra_cost || 0), tax: Number(f.tax || 0), receiptBlob: receipt };
@@ -82,9 +76,9 @@ export default function SellForm({ asset: preset, onClose }) {
         {preview && (
           <div className="card" style={{ boxShadow: 'none' }}>
             <div className="kv"><span>Hasil penjualan bersih</span><span className="num">{formatRupiah(preview.net)}</span></div>
-            <div className="kv"><span>Harga pokok (rata-rata tertimbang)</span><span className="num">{formatRupiah(preview.cogs)}</span></div>
+            <div className="kv"><span>Harga pokok (modal aset ini)</span><span className="num">{formatRupiah(preview.cogs)}</span></div>
             <div className="kv"><span>Laba/rugi terealisasi</span><b className={`num ${preview.pl >= 0 ? 'pos' : 'neg'}`}>{formatRupiah(preview.pl)}</b></div>
-            <div className="formula">Laba/rugi = hasil bersih − harga pokok. Harga pokok memakai rata-rata seluruh pembelian emas Anda, bukan hanya harga beli aset ini.</div>
+            <div className="formula">Laba/rugi = hasil bersih − modal aset ini (harga beli + biaya tambahan).</div>
           </div>
         )}
       </div>

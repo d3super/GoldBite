@@ -11,6 +11,11 @@ import SellForm from '../components/SellForm';
 import Portfolio from './Portfolio';
 import Prices from './Prices';
 import Transactions, { TxRow } from './Transactions';
+import Analysis from './Analysis';
+import Zakat from './Zakat';
+import Notifications from './Notifications';
+import DashboardCharts from './DashboardCharts';
+import ReportModal from '../components/ReportModal';
 import { PasswordGate } from './Pin';
 import { loadAvatar } from '../lib/image';
 import { friendlyError } from '../lib/errors';
@@ -28,7 +33,10 @@ const TABS = [
 
 export default function Shell() {
   const [tab, setTab] = useState('home');
-  const [overlay, setOverlay] = useState(null); // 'profile' | 'transactions'
+  const [stack, setStack] = useState([]); // tumpukan halaman penuh: profile, transactions, zakat, notifications
+  const overlay = stack[stack.length - 1] ?? null;
+  const open = (name) => setStack((st) => [...st, name]);
+  const back = () => setStack((st) => st.slice(0, -1));
   const [addOpen, setAddOpen] = useState(false);
   const [assetForm, setAssetForm] = useState(null); // { category, existing }
   const [sellForm, setSellForm] = useState(null); // { asset }
@@ -46,15 +54,17 @@ export default function Shell() {
   const openSell = (a) => setSellForm({ asset: a ?? null });
 
   let body;
-  if (overlay === 'profile') body = <ProfilePage avatar={avatar} onBack={() => setOverlay(null)} onTransactions={() => setOverlay('transactions')} />;
-  else if (overlay === 'transactions') body = <Transactions onBack={() => setOverlay('profile')} />;
+  if (overlay === 'profile') body = <ProfilePage avatar={avatar} onBack={back} onOpen={open} />;
+  else if (overlay === 'transactions') body = <Transactions onBack={back} />;
+  else if (overlay === 'zakat') body = <Zakat onBack={back} />;
+  else if (overlay === 'notifications') body = <Notifications onBack={back} />;
   else body = (
     <div className="app bg-aurora">
       <div className="screen">
-        {tab === 'home' && <HomeTab avatar={avatar} onProfile={() => setOverlay('profile')} onTransactions={() => setOverlay('transactions')} />}
+        {tab === 'home' && <HomeTab avatar={avatar} onProfile={() => open('profile')} onTransactions={() => open('transactions')} onNotifications={() => open('notifications')} />}
         {tab === 'portfolio' && <Portfolio onAdd={openAdd} onEdit={openEdit} onSell={openSell} />}
         {tab === 'price' && <Prices />}
-        {tab === 'analysis' && <Soon title="Analisis" text="Profit/loss, ROI, komposisi, dan valuasi lengkap akan hadir di Fase 4." icon={TrendingUp} />}
+        {tab === 'analysis' && <Analysis />}
       </div>
 
       <nav className="bottom-nav" aria-label="Navigasi utama">
@@ -99,19 +109,6 @@ export default function Shell() {
   );
 }
 
-function Soon({ title, text, icon: Icon }) {
-  return (
-    <>
-      <h2 className="page-title">{title}</h2>
-      <div className="card empty">
-        <div className="ico"><Icon size={28} /></div>
-        <b style={{ color: 'var(--text)' }}>Segera hadir</b>
-        <p style={{ margin: '6px 0 0' }}>{text}</p>
-      </div>
-    </>
-  );
-}
-
 function SyncChip() {
   const { online, session } = useApp();
   const { sync } = useData();
@@ -134,9 +131,9 @@ function AvatarBtn({ avatar, onClick }) {
 const SOFT_POS = '#7BE0B8';
 const SOFT_NEG = '#FF9B9B';
 
-function HomeTab({ avatar, onProfile, onTransactions }) {
+function HomeTab({ avatar, onProfile, onTransactions, onNotifications }) {
   const { profile, toggleTheme } = useApp();
-  const { summary, priceInputs, transactions, assets, ready } = useData();
+  const { summary, priceInputs, transactions, assets, ready, unseenAlerts } = useData();
   const dark = document.documentElement.dataset.theme === 'dark';
   const noPrice = summary.itemCount > 0 && !priceInputs.market24k;
   const pl = summary.unrealizedPL;
@@ -150,6 +147,10 @@ function HomeTab({ avatar, onProfile, onTransactions }) {
           <div className="name">{profile?.full_name || 'Pengguna'}</div>
         </div>
         <div className="row">
+          <button className="icon-btn" onClick={onNotifications} aria-label="Notifikasi harga" style={{ position: 'relative' }}>
+            <Bell size={18} />
+            {unseenAlerts > 0 && <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--neg)', color: '#fff', fontSize: 10, display: 'grid', placeItems: 'center', padding: '0 4px' }}>{unseenAlerts}</span>}
+          </button>
           <button className="icon-btn" onClick={toggleTheme} aria-label="Ganti tema">{dark ? <Sun size={18} /> : <Moon size={18} />}</button>
           <AvatarBtn avatar={avatar} onClick={onProfile} />
         </div>
@@ -176,12 +177,14 @@ function HomeTab({ avatar, onProfile, onTransactions }) {
         </div>
       </div>
 
+      <DashboardCharts />
+
       <div className="card" style={{ marginTop: 14 }}>
         <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
           <h3>Transaksi terakhir</h3>
           <button className="link" onClick={onTransactions}>Lihat semua</button>
         </div>
-        {transactions.length ? transactions.slice(0, 3).map((t) => <TxRow key={t.id} t={t} name={nameOf(t)} onClick={onTransactions} />)
+        {transactions.length ? transactions.slice(0, 3).map((t) => <TxRow key={t.id} t={t} name={nameOf(t)} onClick={() => onOpen('transactions')} />)
           : <p className="muted small" style={{ margin: '6px 0' }}>Belum ada transaksi. Tekan tombol (+) untuk menambah aset.</p>}
       </div>
 
@@ -247,7 +250,7 @@ function SyncModal({ onClose }) {
   );
 }
 
-function ProfilePage({ avatar, onBack, onTransactions }) {
+function ProfilePage({ avatar, onBack, onOpen }) {
   const { user, profile, theme, setTheme, online, lockNow, hasPin, logout, resetPinWithPassword, notify } = useApp();
   const { sync } = useData();
   const [confirmOut, setConfirmOut] = useState(false);
@@ -255,6 +258,7 @@ function ProfilePage({ avatar, onBack, onTransactions }) {
   const [changePin, setChangePin] = useState(false);
   const [account, setAccount] = useState(false);
   const [syncOpen, setSyncOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [soon, setSoon] = useState(null);
   const [themeOpen, setThemeOpen] = useState(false);
 
@@ -298,9 +302,9 @@ function ProfilePage({ avatar, onBack, onTransactions }) {
           <Row icon={RefreshCw} label="Sinkronisasi" sub={sync.pending ? `${sync.pending} data menunggu` : 'Semua data tersinkron'} onClick={() => setSyncOpen(true)} />
           <Row icon={KeyRound} label="Ubah PIN" sub="Butuh password akun" onClick={() => setChangePin(true)} />
           {hasPin && <Row icon={Lock} label="Kunci aplikasi sekarang" onClick={lockNow} />}
-          <Row icon={Bell} label="Notifikasi" sub="Segera hadir (Fase 4)" onClick={() => setSoon('Notifikasi')} />
-          <Row icon={Calculator} label="Kalkulator Zakat" sub="Segera hadir (Fase 4)" onClick={() => setSoon('Kalkulator Zakat')} />
-          <Row icon={FileText} label="Laporan & ekspor" sub="Segera hadir (Fase 4)" onClick={() => setSoon('Laporan & ekspor')} />
+          <Row icon={Bell} label="Notifikasi harga" sub="Pantau target harga dan nilai portofolio" onClick={() => onOpen('notifications')} />
+          <Row icon={Calculator} label="Kalkulator Zakat" sub="Zakat mal emas dan simulasi" onClick={() => onOpen('zakat')} />
+          <Row icon={FileText} label="Laporan & ekspor" sub="Laporan PDF dan ekspor data" onClick={() => setReportOpen(true)} />
           <Row icon={Settings} label="Tampilan" sub={theme === 'system' ? 'Ikuti sistem' : theme === 'dark' ? 'Mode gelap' : 'Mode terang'} onClick={() => setThemeOpen(true)} />
           {profile?.role === 'super_admin' && <Row icon={ShieldCheck} label="Panel Super Admin" sub="Segera hadir (Fase 5)" onClick={() => setSoon('Panel Super Admin')} />}
         </div>
@@ -311,6 +315,7 @@ function ProfilePage({ avatar, onBack, onTransactions }) {
       </div>
 
       {syncOpen && <SyncModal onClose={() => setSyncOpen(false)} />}
+      {reportOpen && <ReportModal onClose={() => setReportOpen(false)} />}
       {confirmOut && (
         <ConfirmModal title="Keluar dari akun?" message="Data tetap aman di server dan di perangkat ini. Anda perlu memasukkan email dan password lagi untuk masuk." confirmLabel="Keluar" danger busy={outBusy}
           onConfirm={doLogout} onClose={() => setConfirmOut(false)} />

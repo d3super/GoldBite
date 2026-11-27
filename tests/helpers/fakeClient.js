@@ -6,7 +6,7 @@ export function makeServer() {
     seq: 0,
     failUpserts: false,
     tables: {
-      assets: [], transactions: [], price_history: [],
+      assets: [], transactions: [], price_history: [], price_alerts: [],
       brands: [{ id: 1, name: 'Antam', is_active: true }, { id: 2, name: 'UBS', is_active: true }],
       purities: [{ id: 1, code: '24K', fineness: '0.9999', is_active: true }, { id: 5, code: '18K', fineness: '0.75', is_active: true }],
       price_sources: [{ id: 1, name: 'API Harga Spot', kind: 'api' }, { id: 2, name: 'Input Manual', kind: 'manual' }],

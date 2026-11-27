@@ -47,3 +47,14 @@ export const formatDateTime = (iso) => {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
+
+// 20.500.000 -> "20,5 jt" (untuk sumbu grafik)
+export function formatCompact(n) {
+  const v = Number(n) || 0;
+  const a = Math.abs(v);
+  const f = (x, s) => `${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(x)} ${s}`;
+  if (a >= 1e9) return f(v / 1e9, 'M');
+  if (a >= 1e6) return f(v / 1e6, 'jt');
+  if (a >= 1e3) return f(v / 1e3, 'rb');
+  return String(Math.round(v));
+}

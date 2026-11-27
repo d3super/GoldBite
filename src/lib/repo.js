@@ -32,8 +32,9 @@ export async function listPrices(uid) {
 }
 
 export async function pendingCount(uid) {
-  const [a, t, p, f] = await Promise.all(['assets', 'transactions', 'prices', 'files'].map(db.getAll));
+  const [a, t, p, f, al] = await Promise.all(['assets', 'transactions', 'prices', 'files', 'alerts'].map(db.getAll));
   return a.filter((x) => x.user_id === uid && x._pending).length
+    + al.filter((x) => x.user_id === uid && x._pending).length
     + t.filter((x) => x.user_id === uid && x._pending).length
     + p.filter((x) => x.user_id === uid && x._pending).length
     + f.filter((x) => x.path.startsWith(`${uid}/`) && !x.uploaded).length;
@@ -191,6 +192,35 @@ export async function addPrice(uid, p) {
   emit();
   return rec;
 }
+
+// ---------- Notifikasi harga ----------
+export async function listAlerts(uid) {
+  return (await db.getAll('alerts')).filter((a) => a.user_id === uid && !a.deleted_at)
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+}
+
+export async function saveAlert(uid, f) {
+  if (!['harga_emas', 'buyback', 'nilai_portfolio'].includes(f.alert_type)) throw fail({ alert_type: 'Pilih jenis notifikasi' });
+  if (!['di_atas', 'di_bawah'].includes(f.direction)) throw fail({ direction: 'Pilih kondisi' });
+  if (!(Number(f.target_value) > 0)) throw fail({ target_value: 'Target harus lebih dari 0' });
+  const ts = nowIso();
+  const rec = bump({
+    id: newId(), user_id: uid, alert_type: f.alert_type, direction: f.direction, target_value: r2(f.target_value),
+    is_active: true, triggered_at: null, created_at: ts, updated_at: ts, deleted_at: null, _rev: 0,
+  });
+  await db.put('alerts', rec);
+  emit();
+  return rec;
+}
+
+async function patchAlert(alert, patch) {
+  const ts = nowIso();
+  await db.put('alerts', bump({ ...alert, ...patch, updated_at: ts }));
+  emit();
+}
+export const setAlertActive = (uid, alert, active) => patchAlert(alert, { is_active: active, triggered_at: active ? null : alert.triggered_at });
+export const triggerAlert = (uid, alert) => patchAlert(alert, { is_active: false, triggered_at: nowIso() });
+export const deleteAlert = (uid, alert) => patchAlert(alert, { deleted_at: nowIso() });
 
 // ---------- Foto / bukti ----------
 export const fileUrlCache = new Map();

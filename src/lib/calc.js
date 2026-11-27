@@ -205,3 +205,24 @@ export function zakatMal({ totalPureGrams, price24k, haulMet = true, settings = 
     zakat: obligated ? r2(base * rate) : 0,
   };
 }
+
+// ---- Realized P/L per aset (identifikasi spesifik) ---------------------
+// Dipakai aplikasi: setiap aset emas adalah barang tersendiri, jadi harga pokoknya adalah
+// biaya perolehan aset itu sendiri (harga beli + biaya tambahan). Dengan begitu laba terealisasi
+// dan laba belum terealisasi memakai dasar yang sama dan jumlahnya konsisten.
+// (Weighted average di atas tidak dipakai karena mencampur kadar & merk yang berbeda.)
+export function realizedPLByAsset(assets, transactions) {
+  const byId = new Map(assets.map((a) => [a.id, a]));
+  let proceeds = 0, cogs = 0;
+  const lines = [];
+  for (const t of transactions) {
+    if (t.deleted_at || t.type !== 'jual') continue;
+    const a = byId.get(t.asset_id);
+    if (!a) continue;
+    const cost = acquisitionCost(a.purchase_price, a.extra_cost);
+    const net = num(t.total) - num(t.extra_cost) - num(t.tax);
+    proceeds += net; cogs += cost;
+    lines.push({ asset_id: a.id, name: a.name, trx_date: t.trx_date, proceeds: r2(net), cogs: cost, pl: r2(net - cost) });
+  }
+  return { realizedPL: r2(proceeds - cogs), proceeds: r2(proceeds), cogs: r2(cogs), soldCount: lines.length, lines };
+}

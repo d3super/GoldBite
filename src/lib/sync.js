@@ -11,7 +11,10 @@ const TRX_COLS = ['id', 'user_id', 'asset_id', 'type', 'trx_date', 'weight_g', '
   'tax', 'location', 'receipt_path', 'notes', 'client_id', 'version', 'created_at', 'updated_at', 'deleted_at'];
 const PRICE_COLS = ['user_id', 'source_id', 'price_type', 'brand_id', 'purity_id', 'price_per_gram', 'currency',
   'effective_at', 'client_id'];
+const ALERT_COLS = ['id', 'user_id', 'alert_type', 'direction', 'target_value', 'is_active', 'triggered_at',
+  'created_at', 'updated_at', 'deleted_at'];
 const NUMERIC = {
+  alerts: ['target_value'],
   assets: ['gross_weight', 'stone_weight', 'net_weight', 'purchase_price', 'extra_cost'],
   transactions: ['weight_g', 'price_per_g', 'total', 'extra_cost', 'tax'],
 };
@@ -129,10 +132,12 @@ export function runSync(client, uid) {
       add(await pushRows(client, uid, 'assets', 'assets', ASSET_COLS)); // aset dulu (transaksi mengacu ke aset)
       add(await pushRows(client, uid, 'transactions', 'transactions', TRX_COLS));
       add(await pushRows(client, uid, 'prices', 'price_history', PRICE_COLS));
+      add(await pushRows(client, uid, 'alerts', 'price_alerts', ALERT_COLS));
       await pullMaster(client);
       await pullByUpdatedAt(client, uid, 'assets', 'assets');
       await pullByUpdatedAt(client, uid, 'transactions', 'transactions');
       await pullPrices(client, uid);
+      await pullByUpdatedAt(client, uid, 'alerts', 'price_alerts'); // terakhir: bila kolom belum ada, data lain tidak terhambat
       if (!summary.error) await db.put('meta', { key: `last_sync:${uid}`, value: new Date().toISOString() });
     } catch (e) {
       summary.error = summary.error || e;

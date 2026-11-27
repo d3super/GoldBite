@@ -1,20 +1,18 @@
-# GOLDBITE – Fase 3
+# GOLDBITE – Fase 4
 Track Your Gold, Grow Your Wealth.
 
-Fase 2: kerangka PWA, tema navy-gold, login/PIN, Calculation Engine.
-Fase 3: aset (logam mulia & perhiasan), transaksi beli/jual, harga emas, penyimpanan lokal
-(IndexedDB) dan sinkronisasi dasar ke Supabase, foto aset & bukti transaksi.
+- Fase 2: kerangka PWA, tema navy-gold, login/PIN, Calculation Engine
+- Fase 3: aset, transaksi, harga emas, penyimpanan lokal + sinkronisasi dasar
+- Fase 4: dashboard & grafik, analisis, notifikasi harga, kalkulator zakat, laporan PDF, ekspor data
 
 ## Struktur penting
-- `src/lib/calc.js`     Calculation Engine (semua rumus)
-- `src/lib/db.js`       penyimpanan lokal IndexedDB
-- `src/lib/repo.js`     operasi data local-first (aset, transaksi, harga, foto)
-- `src/lib/sync.js`     kirim/tarik data ke Supabase
-- `src/lib/prices.js`   pemilihan harga acuan + ambil harga spot
-- `src/context/DataContext.jsx`  data & status sinkronisasi untuk seluruh layar
-- `src/pages/`          Portfolio, Transactions, Prices, Shell, Auth, Pin
-- `tests/`              30 tes otomatis (`npm test`)
-- `goldbite-patch-fase3.sql`  tambahan SQL Fase 3 (jalankan di Supabase)
+- `src/lib/calc.js`        Calculation Engine (semua rumus)
+- `src/lib/analytics.js`   deret waktu portofolio, kinerja per kelompok, notifikasi, zakat, data laporan
+- `src/lib/report.js`      pembuat laporan PDF (pdf-lib, dimuat saat dibutuhkan)
+- `src/lib/repo.js`, `sync.js`, `db.js`  data local-first dan sinkronisasi
+- `src/pages/`             Dashboard (Shell), Portfolio, Prices, Analysis, Zakat, Notifications, Transactions
+- `tests/`                 tes otomatis (`npm test`)
+- `goldbite-patch-fase3.sql`, `goldbite-patch-fase4.sql`  tambahan SQL (jalankan di Supabase)
 
 ## Menjalankan di komputer (opsional)
 `.env` diisi seperti `.env.example`, lalu `npm install`, `npm run dev`, `npm test`.
