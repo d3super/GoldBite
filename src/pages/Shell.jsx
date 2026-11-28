@@ -184,7 +184,7 @@ function HomeTab({ avatar, onProfile, onTransactions, onNotifications }) {
           <h3>Transaksi terakhir</h3>
           <button className="link" onClick={onTransactions}>Lihat semua</button>
         </div>
-        {transactions.length ? transactions.slice(0, 3).map((t) => <TxRow key={t.id} t={t} name={nameOf(t)} onClick={() => onOpen('transactions')} />)
+        {transactions.length ? transactions.slice(0, 3).map((t) => <TxRow key={t.id} t={t} name={nameOf(t)} onClick={onTransactions} />)
           : <p className="muted small" style={{ margin: '6px 0' }}>Belum ada transaksi. Tekan tombol (+) untuk menambah aset.</p>}
       </div>
 
@@ -298,7 +298,7 @@ function ProfilePage({ avatar, onBack, onOpen }) {
 
         <div className="card" style={{ marginTop: 14, padding: '4px 14px' }}>
           <Row icon={User} label="Akun saya" sub="Nama, username, email" onClick={() => setAccount(true)} />
-          <Row icon={ReceiptText} label="Transaksi" sub="Histori pembelian dan penjualan" onClick={onTransactions} />
+          <Row icon={ReceiptText} label="Transaksi" sub="Histori pembelian dan penjualan" onClick={() => onOpen('transactions')} />
           <Row icon={RefreshCw} label="Sinkronisasi" sub={sync.pending ? `${sync.pending} data menunggu` : 'Semua data tersinkron'} onClick={() => setSyncOpen(true)} />
           <Row icon={KeyRound} label="Ubah PIN" sub="Butuh password akun" onClick={() => setChangePin(true)} />
           {hasPin && <Row icon={Lock} label="Kunci aplikasi sekarang" onClick={lockNow} />}

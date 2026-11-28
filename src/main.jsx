@@ -5,13 +5,16 @@ import './styles/theme.css';
 import { AppProvider } from './context/AppContext';
 import { DataProvider } from './context/DataContext';
 import App from './App';
+import ErrorBoundary from './components/ErrorBoundary';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <AppProvider>
-      <DataProvider>
-        <App />
-      </DataProvider>
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <DataProvider>
+          <App />
+        </DataProvider>
+      </AppProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );
